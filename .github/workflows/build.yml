@@ -19,7 +19,7 @@ concurrency:
 jobs:
   build:
     name: Build and Package
-    runs-on: macos-26
+    runs-on: macos-latest
     timeout-minutes: 180
 
     steps:
@@ -54,10 +54,13 @@ jobs:
           brew list dpkg >/dev/null 2>&1 || brew install dpkg
           brew list libarchive >/dev/null 2>&1 || brew install libarchive
 
+      - name: Clean LLVM-On-iOS build artifacts
+        run: rm -rf LLVM-On-iOS/build
+
       - name: Build Nyxian
         run: |
           set -euo pipefail
-          CHECK_DEPS=0 make -j"$(sysctl -n hw.ncpu)" all
+          CHECK_DEPS=0 LDFLAGS="-Wl,-undefined,suppress -Wl,-flat_namespace" make -j"$(sysctl -n hw.ncpu)" all
 
       - name: Upload Nyxian
         uses: actions/upload-artifact@v4
