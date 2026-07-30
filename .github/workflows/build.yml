@@ -3,52 +3,66 @@ name: Build iOS App
 on:
   push:
     branches:
-      - '**'
+      - main
+      - develop
   pull_request:
     branches:
-      - '**'
+      - main
+      - develop
   workflow_dispatch:
 
 concurrency:
+  # Keep one run per ref, but don't cancel main/develop builds mid-flight
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
 
 jobs:
   build:
     name: Build and Package
     runs-on: macos-26
+    timeout-minutes: 180
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 1
 
       - name: Extract version
         run: |
           VERSION=$(awk -F'=' '/^[[:space:]]*VERSION[[:space:]]*=/ {gsub(/[[:space:]]/,"",$2); print $2; exit}' Config.xcconfig)
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
+      # Cache Homebrew downloads + installed formula metadata
+      - name: Cache Homebrew
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/Homebrew
+            /opt/homebrew/var/homebrew
+          key: ${{ runner.os }}-brew-ldid-dpkg-libarchive-v1
+          restore-keys: |
+            ${{ runner.os }}-brew-
+
       - name: Install Dependencies
         run: |
-          set -e
-
-          # Packages we desperately need
-          brew install ldid dpkg libarchive
-
-      - name: Setup
-        run: |
-          set -e
+          set -euo pipefail
+          brew update --quiet
+          # idempotent installs; skip if already present
+          brew list ldid >/dev/null 2>&1 || brew install ldid
+          brew list dpkg >/dev/null 2>&1 || brew install dpkg
+          brew list libarchive >/dev/null 2>&1 || brew install libarchive
 
       - name: Build Nyxian
-        timeout-minutes: 1200
         run: |
-          set -e
-
-          CHECK_DEPS=0 make all
+          set -euo pipefail
+          CHECK_DEPS=0 make -j"$(sysctl -n hw.ncpu)" all
 
       - name: Upload Nyxian
         uses: actions/upload-artifact@v4
         with:
-          name: emexDE.ipa
+          name: emexDE-${{ env.VERSION }}.ipa
           path: emexDE.ipa
+          if-no-files-found: error
+          compression-level: 0
