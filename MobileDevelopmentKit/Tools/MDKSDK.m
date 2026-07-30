@@ -106,7 +106,21 @@
     }
     
 failed:
-    return @[[MDKOSVersion versionWithVersionString:@"26.5"]];
+    /*
+     * SDKSettings.plist was unreadable or shaped in a way we dont
+     * understand. rather than pinning a hardcoded release here, which
+     * goes stale every SDK bump, fall back to the version the SDK
+     * reports about itself. only if even that is unavailable do we
+     * admit we know nothing.
+     */
+    {
+        MDKOSVersion *ownVersion = self.version;
+        if(ownVersion != nil)
+        {
+            return @[ownVersion];
+        }
+    }
+    return @[];
 }
 
 @end

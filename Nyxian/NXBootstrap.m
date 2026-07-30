@@ -62,9 +62,14 @@
     return _rootURL;
 }
 
++ (NSString*)sdkVersion
+{
+    return NXSDK_VERSION;
+}
+
 - (NSURL*)sdkURL
 {
-    return [self.rootURL URLByAppendingPathComponent:@"/SDK/iPhoneOS26.5.sdk"];
+    return [[self.rootURL URLByAppendingPathComponent:@"SDK"] URLByAppendingPathComponent:NXSDK_NAME];
 }
 
 - (NSURL*)includeURL
@@ -288,43 +293,59 @@
                 self.version = 23;
             }
             
-            if(self.version < 24)
+            if(self.version < 25)
             {
                 /*
                  * the SDK is very important to use iOS API which
                  * is very cool.
+                 *
+                 * everything here is driven by the NXSDK_* knobs in
+                 * NXBootstrap.h, so a SDK bump does not need this block
+                 * touched, only the knobs and NXBOOTSTRAP_NEWEST_VERSION.
                  */
-                NSLog(@"bootstrapping SDK");
-                [[NSFileManager defaultManager] removeItemAtURL:[self.rootURL URLByAppendingPathComponent:@"SDK"] error:nil];
+                NSLog(@"bootstrapping SDK %@", NXSDK_VERSION);
+
+                NSURL *sdkRootURL = [self.rootURL URLByAppendingPathComponent:@"SDK"];
+                [[NSFileManager defaultManager] removeItemAtURL:sdkRootURL error:nil];
                 [[NSFileManager defaultManager] removeItemAtURL:self.swiftModuleCacheURL error:nil];    /* clearing module cache */
-                
-                if(!fdownload(@"https://nyxian.app/bootstrap/iPhoneOS26.5.sdk.zip", @"sdk.zip"))
+
+                if(!fdownload(NXSDK_ARCHIVE_URL, @"sdk.zip"))
                 {
-                    error = [NSError errorWithDomain:@"" code:0 userInfo:@{ NSLocalizedDescriptionKey: @"downloading \"https://nyxian.app/bootstrap/iPhoneOS26.5.sdk.zip\" failed" }];
+                    error = [NSError errorWithDomain:@"" code:0 userInfo:@{ NSLocalizedDescriptionKey: [NSString stringWithFormat:@"downloading \"%@\" failed", NXSDK_ARCHIVE_URL] }];
                     goto report_error;
                 }
-                
-                if(!unzipArchiveAtPath([NSTemporaryDirectory() stringByAppendingPathComponent:@"sdk.zip"], [self.rootURL URLByAppendingPathComponent:@"SDK"].path))
+
+                if(!unzipArchiveAtPath([NSTemporaryDirectory() stringByAppendingPathComponent:@"sdk.zip"], sdkRootURL.path))
                 {
                     error = [NSError errorWithDomain:@"" code:0 userInfo:@{ NSLocalizedDescriptionKey: @"extracting \"sdk.zip\" failed" }];
                     goto report_error;
                 }
-                
-                NSArray<NSURL*> *symlinkSDKs = @[
-                    [self.rootURL URLByAppendingPathComponent:@"/SDK/iPhoneOS26.2.sdk"],
-                    [self.rootURL URLByAppendingPathComponent:@"/SDK/iPhoneOS26.4.1.sdk"],
-                    [self.rootURL URLByAppendingPathComponent:@"/SDK/iPhoneOS26.4.sdk"]
-                ];
-                
-                for(NSURL *symlink in symlinkSDKs)
+
+                /*
+                 * projects and caches created against an older emexDE
+                 * recorded the sysroot path of the SDK that shipped back
+                 * then, so keep those paths resolving at the new one.
+                 */
+                for(NSString *compatVersion in NXSDK_COMPAT_VERSIONS)
                 {
+                    NSURL *symlink = [sdkRootURL URLByAppendingPathComponent:[NSString stringWithFormat:@"iPhoneOS%@.sdk", compatVersion]];
+
+                    /*
+                     * the shipped archive may already carry one of these
+                     * names, in that case there is nothing to link.
+                     */
+                    if([[NSFileManager defaultManager] fileExistsAtPath:symlink.path])
+                    {
+                        continue;
+                    }
+
                     if(![[NSFileManager defaultManager] createSymbolicLinkAtURL:symlink withDestinationURL:self.sdkURL error:&error])
                     {
                         goto report_error;
                     }
                 }
-                
-                self.version = 24;
+
+                self.version = 25;
             }
         }
         
