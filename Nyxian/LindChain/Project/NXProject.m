@@ -24,6 +24,7 @@
 #import <LindChain/Project/NXCodeTemplate.h>
 #import <LindChain/Project/NXUser.h>
 #import <LindChain/Project/NXUtils.h>
+#import <NXBootstrap.h>
 #import <emexDE-Swift.h>
 
 @implementation NXProjectConfig
@@ -32,7 +33,7 @@
 {
     return @[
         @"-target",
-        @"apple-arm64-ios26.4",
+        NXSDK_TARGET_TRIPLE,
         @"-isysroot",
         NXBootstrap.shared.sdkURL.path,
         @"-resource-dir",
@@ -281,7 +282,7 @@
         @"NXDisplayName": name,
         @"NXOrganizationPrefix": organizationIdentifierValue,
         @"NXBundleIdentifier": bundleIdentifierValue,
-        @"NXDeploymentTarget": version.versionString ?: @"26.5",
+        @"NXDeploymentTarget": version.versionString ?: NXSDK_VERSION,
         @"NXClangFlags": NXCompilerFlagsForCodeTemplateLanguage(schemeKind, languageKind),
         @"NXLinkerFlags": @[],
         @"NXSwiftFlags": NXSwiftFlagsForCodeTemplateLanguage(schemeKind, languageKind),

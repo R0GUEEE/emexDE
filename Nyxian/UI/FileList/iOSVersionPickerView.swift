@@ -36,11 +36,17 @@ fileprivate var _NXOSVersionSupportedBuildVersions: [String] = []
 @objc class NXOSVersion: NSObject {
     @objc static var NXOSVersionSupportedBuildVersionsRaw: [MDKOSVersion] {
         get {
+            /*
+             * an empty list is as useless to callers as a nil one, both
+             * mean the SDK could not tell us what it supports, so treat
+             * them the same and fall back on the version we ship.
+             */
             if let sdk = NXSDK,
-               let supportedVersion = sdk.supportedVersions {
+               let supportedVersion = sdk.supportedVersions,
+               !supportedVersion.isEmpty {
                 return supportedVersion
             }
-            if let fallback = MDKOSVersion(versionString: "26.5") {
+            if let fallback = MDKOSVersion(versionString: NXBootstrap.sdkVersion) {
                 return [fallback]
             }
             return []
@@ -51,16 +57,17 @@ fileprivate var _NXOSVersionSupportedBuildVersions: [String] = []
             if !_NXOSVersionSupportedBuildVersions.isEmpty {
                 return _NXOSVersionSupportedBuildVersions
             }
-            
+
             if let sdk = NXSDK,
-               let supportedVersions = sdk.supportedVersions {
+               let supportedVersions = sdk.supportedVersions,
+               !supportedVersions.isEmpty {
                 for version in supportedVersions {
                     _NXOSVersionSupportedBuildVersions.append(version.versionString)
                 }
                 return _NXOSVersionSupportedBuildVersions
             }
-            
-            return ["26.5"]
+
+            return [NXBootstrap.sdkVersion]
         }
     }
 }
